@@ -1,0 +1,14 @@
+{
+  "name": "magnetica-lead-automation",
+  "version": "1.0.0",
+  "description": "Lead capture + WhatsApp Channel invite automation for Magnetica Society",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "bulk": "node bulk-send.js",
+    "test": "node test.js"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {}
+}

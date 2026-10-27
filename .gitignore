@@ -1,0 +1,6 @@
+.env
+node_modules/
+send-log.csv
+*.log
+service-account*.json
+LEADS*.csv
