@@ -180,7 +180,21 @@ const server = http.createServer(async (req, res) => {
 
   // Health checks — UptimeRobot pings these so the free Render instance
   // never sleeps. A sleeping instance drops incoming leads.
-  if (req.method === 'GET' && (route === '/' || route === '/health')) {
+  //
+  // HEAD must be answered as well as GET: uptime monitors commonly probe with
+  // HEAD, and a HEAD falling through to the 404 handler makes the monitor
+  // report the service as down while it is in fact perfectly healthy.
+  if ((req.method === 'GET' || req.method === 'HEAD') &&
+      (route === '/' || route === '/health')) {
+    if (req.method === 'HEAD') {
+      // A HEAD response carries headers only, never a body.
+      res.writeHead(200, {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+      });
+      res.end();
+      return;
+    }
     sendJson(res, 200, { ok: true, time: new Date().toISOString() });
     return;
   }
