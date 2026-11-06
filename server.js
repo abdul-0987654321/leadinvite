@@ -77,24 +77,52 @@ function pick(body, keys) {
   return '';
 }
 
+// Field names the quiz funnel actually posts (confirmed against the page's
+// own sendWebhook payload), plus the Italian/English variants a future edit
+// to the page might introduce.
 const KNOWN_KEYS = new Set([
   'name', 'nome', 'first_name', 'firstName', 'full_name', 'fullName',
   'contact_name', 'Contact Name', 'email', 'mail', 'e-mail', 'Email',
   'phone', 'telefono', 'tel', 'phone_number', 'phoneNumber', 'mobile', 'Phone',
   'quiz_result', 'result', 'archetipo', 'archetype', 'risultato',
+  'archetype_name', 'archetype_key',
+  'answers', 'counts',
+  'page_url', 'submitted_at',
+  'fbclid', 'fbc', 'fbp',
   'source', 'utm_source', 'secret',
 ]);
+
+/** Readable "1: B | 2: A | 3: D" instead of raw JSON, so the sheet stays legible. */
+function formatAnswers(answers) {
+  if (!answers || typeof answers !== 'object') return '';
+  return Object.entries(answers)
+    .map(([q, a]) => `${q}: ${a}`)
+    .join(' | ');
+}
 
 function extractLead(body) {
   const phoneRaw = pick(body, [
     'phone', 'telefono', 'tel', 'phone_number', 'phoneNumber', 'mobile', 'Phone',
   ]);
 
-  // Anything unrecognised is kept verbatim, so no quiz answer is silently lost
-  // if the page's field names change later.
+  // Anything unrecognised is kept verbatim in Notes, so nothing is silently
+  // lost if the page's field names change later.
   const extras = {};
   for (const [k, v] of Object.entries(body || {})) {
     if (!KNOWN_KEYS.has(k)) extras[k] = v;
+  }
+
+  // The funnel sends the answers as an object; fall back to any stray
+  // "domanda_1"-style fields if the page is ever rewritten.
+  const answers = body?.answers && typeof body.answers === 'object'
+    ? formatAnswers(body.answers)
+    : formatAnswers(extras);
+
+  const notes = [];
+  if (body?.fbclid) notes.push(`fbclid=${body.fbclid}`);
+  if (body?.page_url) notes.push(`page=${body.page_url}`);
+  if (Object.keys(extras).length && body?.answers) {
+    notes.push(`extra=${JSON.stringify(extras)}`);
   }
 
   return {
@@ -105,9 +133,13 @@ function extractLead(body) {
     email: pick(body, ['email', 'mail', 'e-mail', 'Email']),
     phoneRaw,
     phone: normalisePhone(phoneRaw),
-    quizResult: pick(body, ['quiz_result', 'result', 'archetipo', 'archetype', 'risultato']),
-    quizAnswers: Object.keys(extras).length ? JSON.stringify(extras) : '',
+    quizResult: pick(body, [
+      'archetype_name', 'quiz_result', 'result', 'archetipo', 'archetype',
+      'risultato', 'archetype_key',
+    ]),
+    quizAnswers: answers,
     source: pick(body, ['source', 'utm_source']) || 'quiz-funnel',
+    notes: notes.join(' | '),
     timestamp: new Date().toISOString(),
   };
 }
